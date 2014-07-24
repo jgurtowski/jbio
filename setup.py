@@ -5,7 +5,7 @@ def readme():
         return f.read()
 
 setup(name='jbio',
-      version='0.01',
+      version='0.1',
       description='General Tools',
       long_description=readme(),
       url='https://github.com/jgurtowski/jbio',
@@ -13,12 +13,6 @@ setup(name='jbio',
       author_email='gurtowsk@cshl.edu',
       license='GPL',
       packages=['jbio']
-      #scripts=['scripts/schtats'],
-      #entry_points = {
-       # 'console_scripts': [
-        #    'blast6filter = ectools.blastio:blast6filter_main'
-         #   ]
-        #},
       )
       
       
