@@ -1,4 +1,6 @@
 
+from collections import namedtuple
+
 Blast6SeqRecord = namedtuple('Blast6SeqRecord',["qname","sname","pctid",
                                                 "length","mismatch","gapopen",
                                                 "qstart","qend","sstart",
