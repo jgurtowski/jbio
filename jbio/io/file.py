@@ -13,8 +13,21 @@ def line_record_iterator(record, types, iterable):
     return imap(record_maker, iterable)
 
 
-def iterator_over_file(filename,*open_args):
-    with open(filename,*open_args) as fh:
+def iterator_over_file(filename, open_func=open):
+    with open_func(filename) as fh:
         for item in fh:
             yield item
+
+def iterator_over_file_from_extension(filename):
+    import gzip
+    openers = {"gz" : gzip.open}
+
+    ext = filename.split(".")[-1]
+    opener = openers.get(ext, open)
+
+    return iterator_over_file(filename, opener)
             
+def record_to_string(record, delim="\t"):
+    fields = record._fields
+    val_getter = compose(str, partial(getattr, record))
+    return delim.join(imap(val_getter, fields))

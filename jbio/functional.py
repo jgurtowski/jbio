@@ -10,3 +10,10 @@ def fapply(function, argument):
 
 def zipmap(functions, data):
     return starmap(fapply, izip(functions, data))
+
+
+def fpass(*args, **kwargs):
+    pass
+
+def identity(x):
+    return x

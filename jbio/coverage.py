@@ -1,16 +1,29 @@
-
 import operator
 from itertools import count, compress
+from functools import partial
+from operator import itemgetter
 
-def coverage_array_from_ranges(ranges, max_len=None):
+def coverage_array_from_ranges(ranges, max_len=None, 
+                               start_getter=itemgetter(0),
+                               end_getter=itemgetter(1),
+                               update_func=lambda _,y : y+1,
+                               initial_array_val=0):
     '''Takes a list of ranges (start, end) (alignment positions)
     and returns a list that has the coverage at each position
+    If ranges is not a tuple, supply start_getter and end_getter
+    so we can get the start and end
 
+    update_func updates the coverage values
+                it should take two params, the current range object
+                and the array value to be updated (old value)
+                It should return a new value for the array element
+                
     start and end begin from 0 and are inclusive
     '''
     
-    cov_arr = [0] * max_len if max_len else []
-    for start, end in ranges:
+    cov_arr = [initial_array_val] * max_len if max_len else []
+    for r in ranges:
+        start, end = start_getter(r), end_getter(r)
         if start > end:
             start, end = end, start
         if start < 0 or end < 0:
@@ -19,10 +32,10 @@ def coverage_array_from_ranges(ranges, max_len=None):
             raise "Start or End is greater than max_len %d" % max_len
         
         if end >= len(cov_arr):
-            cov_arr += [0] * ((end-len(cov_arr)) + 1)
+            cov_arr += [initial_array_val] * ((end-len(cov_arr)) + 1)
         
         for i in range(start,end+1,1):
-            cov_arr[i] += 1
+            cov_arr[i] = update_func(r, cov_arr[i])
 
     return cov_arr
 
