@@ -8,4 +8,4 @@ def reverse_complement(seq):
 def varfloor(floor, value):
     if value < floor:
         return floor
-
+    return value
