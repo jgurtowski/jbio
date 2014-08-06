@@ -12,10 +12,6 @@ from jbio.io.file import record_to_string
 
 LIS_t = namedtuple('LIS_t', ["score","prev"])
 
-#Two functions that get the start and end from alignments
-Alignment_Getters_t = namedtuple('Alignment_Getters_t', ["start_getter",
-                                                         "end_getter"])
-
 #Alignment functions
 Alignment_Functions_t = namedtuple('Alignment_Functions_t',
                                    ['is_reverse',
@@ -23,7 +19,8 @@ Alignment_Functions_t = namedtuple('Alignment_Functions_t',
                                     'best_scoring_non_overlapping_greedy',
                                     'longest_non_overlapping_greedy',
                                     'remove_contained',
-                                    'calc_overlap',
+                                    'overlap',
+                                    'len_aln',
                                     'score_getter_matching_consensus_estimated',
                                     'score_getter_mummer_scorelocal',
                                     'LIS'])
@@ -94,6 +91,8 @@ def alignment_functions(start_getter, end_getter):
         return map(itemgetter(1), 
                    ifilter(compose(lambda x : not x,itemgetter(0)), 
                            izip(contained,alignments)))
+    def len_aln(x):
+        return eg(x) - sg(x) + 1
 
     def overlap(x, y):
         '''Calculates overlap between x and y'''
@@ -152,7 +151,6 @@ def alignment_functions(start_getter, end_getter):
         #filter(print, imap(lambda x: "\t".join(map(str,x)) , izip(count(),tb,lis,imap(record_to_string,alns))))
         return filter(itemgetter(0), izip(tb,lis,alns))
 
-    
 
     #END - get_alignment_functions
     return Alignment_Functions_t(is_reverse,
@@ -160,11 +158,11 @@ def alignment_functions(start_getter, end_getter):
                                  best_scoring_non_overlapping_greedy,
                                  longest_non_overlapping_greedy,
                                  remove_contained,
-                                 calc_overlap,
+                                 overlap,
+                                 len_aln,
                                  score_getter_matching_consensus_estimated,
                                  score_getter_mummer_scorelocal,
-                                 LIS
-                                 )
+                                 LIS)
 
 def group(key_func, alignment_iterable):
     '''
