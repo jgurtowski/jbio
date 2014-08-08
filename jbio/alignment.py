@@ -1,14 +1,20 @@
 from __future__ import print_function
 
+import sys
+
 import functools
 from functools import partial
 from itertools import groupby, imap, repeat, izip, starmap, count, ifilter
-from operator import itemgetter, eq, neg
+from operator import itemgetter, eq, neg, add
 from collections import namedtuple
 
 from jbio.functional import compose
 from jbio.misc import reverse_complement, varfloor
 from jbio.io.file import record_to_string
+from jbio.log import logger
+
+
+log = logger(sys.stderr)
 
 LIS_t = namedtuple('LIS_t', ["score","prev"])
 
@@ -16,6 +22,7 @@ LIS_t = namedtuple('LIS_t', ["score","prev"])
 Alignment_Functions_t = namedtuple('Alignment_Functions_t',
                                    ['is_reverse',
                                     'directionless_start_end_getters',
+                                    'greedy_repeat_filter',
                                     'best_scoring_non_overlapping_greedy',
                                     'longest_non_overlapping_greedy',
                                     'remove_contained',
@@ -23,6 +30,7 @@ Alignment_Functions_t = namedtuple('Alignment_Functions_t',
                                     'len_aln',
                                     'score_getter_matching_consensus_estimated',
                                     'score_getter_mummer_scorelocal',
+                                    'score_getter_penalize_overlap_estimated',
                                     'LIS'])
 
 def alignment_functions(start_getter, end_getter):
@@ -33,6 +41,9 @@ def alignment_functions(start_getter, end_getter):
     
     def is_reverse(a):
         return start_getter(a) > end_getter(a)
+
+    def len_aln(x):
+        return eg(x) - sg(x) + 1
     
     def directionless_start_end_getters():
         '''if alignment is reversed, make it so that it's forward'''
@@ -40,7 +51,37 @@ def alignment_functions(start_getter, end_getter):
         eg = lambda c : start_getter(c) if is_reverse(c) else end_getter(c)
         return (sg,eg)
 
+    ##functions used by many underlying algorithms
     sg,eg = directionless_start_end_getters()
+    make_list = lambda x : list(x) if not type(x) == type([]) else x
+
+    def greedy_repeat_filter(alignment_iterable, final_sort_key=None):
+        '''takes a list of alignments, if two alignmnts have the same
+        start or end positions take the longest
+        
+        final_sort_key gives us the final value to sort by to break ties
+              Larger values are better
+        '''
+        logf = compose(log, partial(add,"greedy_repeat_filter: "))
+
+        s_sorted = make_list(alignment_iterable)
+        logf("Staring Alignments: %d" % len(s_sorted))
+
+        if final_sort_key:
+            s_sorted = sorted(alignment_iterable, key=final_sort_key, reverse=True)
+
+        s_sorted = sorted(s_sorted, key=eg, reverse=True)
+        s_sorted = sorted(s_sorted, key=sg)
+        
+        filtered_alignments = imap(itemgetter(0),group(sg, s_sorted))
+
+        e_sorted = sorted(filtered_alignments, key=eg, reverse=True)
+        
+        filtered = map(itemgetter(0), group(eg, e_sorted))
+        logf("Filtered Alignments %d " % len(filtered) )
+
+        return filtered
+
 
     def best_scoring_non_overlapping_greedy(score_getter, alignment_iterable):
         '''Gets the best scoring non-overlapping alignments
@@ -61,6 +102,7 @@ def alignment_functions(start_getter, end_getter):
                                  sorted_aligns, [])
 
 
+
     def longest_non_overlapping_greedy(alignment_iterable):
         '''Gets the longest non-overlapping alignment
         sections with respect to the query sequence
@@ -68,8 +110,7 @@ def alignment_functions(start_getter, end_getter):
     
         @return list containing the set of longest non-overlapping alignments
         '''
-        alen = lambda a : eg(a) - sg(a)
-        return best_scoring_non_overlapping_greedy(alen, alignment_iterable)
+        return best_scoring_non_overlapping_greedy(len_aln, alignment_iterable)
 
 
     def remove_contained(alignments):
@@ -77,9 +118,19 @@ def alignment_functions(start_getter, end_getter):
         @param alignments list of alignments
         @return list of alignments with contained alignments removed
         '''
-    
-        is_contained = lambda a,b : sg(b) >= sg(a) and eg(b) <= eg(a)
+        logf = compose(log,partial(add, "remove_contained: "))
 
+        alignments = make_list(alignments)
+        
+        logf("Starting Alignments: %d" % len(alignments))
+        
+        is_contained = lambda a,b : sg(b) >= sg(a) and eg(b) <= eg(a)
+        
+        logf("Sorting")
+        end_sorted = sorted(alignments, key=eg, reverse=True)
+        alignments = sorted(end_sorted, key=sg)
+
+        logf("Searching")
         #remove contained
         contained = [False] * len(alignments)
         for i in xrange(len(alignments)):
@@ -88,15 +139,28 @@ def alignment_functions(start_getter, end_getter):
                     contained[i] = True
                     break
                 
-        return map(itemgetter(1), 
-                   ifilter(compose(lambda x : not x,itemgetter(0)), 
-                           izip(contained,alignments)))
-    def len_aln(x):
-        return eg(x) - sg(x) + 1
+        filtered = map(itemgetter(1), 
+                       ifilter(compose(lambda x : not x,itemgetter(0)), 
+                               izip(contained,alignments)))
+
+        logf("Filtered Alignments: %d" % len(filtered))
+        
+        return filtered
+
 
     def overlap(x, y):
         '''Calculates overlap between x and y'''
         return varfloor(0, min(eg(x), eg(y)) - sg(y) + 1)
+
+    def score_getter_penalize_overlap_estimated(a, b):
+        '''Penalizes overlap, to try to find non-overlapping segments'''
+        if a == None or overlap(a,b) == 0:
+            return len_aln(b) * (b.pctid / 100.0)
+        olap = overlap(a,b)
+        olap_penalty = b_olap_matches = olap * (b.pctid / 100.0) * neg(1)
+        b_hang_matches = (len_aln(b) - olap) * (b.pctid / 100.0)
+
+        return olap_penalty + b_hang_matches
 
     def score_getter_matching_consensus_estimated(a, b):
         '''Scoring Function for filtering alignments for downstream
@@ -123,10 +187,16 @@ def alignment_functions(start_getter, end_getter):
     def LIS(score_getter, alignments):
         '''Score getter takes two alignments and returns a score,
            Should probably choose from the above scoring functions'''
-    
+        logf = compose(log, partial(add, "LIS:"))
+        alignments = make_list(alignments)
+
+        logf("Starting Alignments: %d" % len(alignments))
+        logf("Sorting")
         end_sorted = sorted(alignments, key=eg, reverse=True)
         alns = sorted(end_sorted, key=sg)
-    
+
+        logf("Starting DP")
+
         #initialize lis array
         lis = map(LIS_t._make, izip(imap(partial(score_getter,None), alns),
                                 repeat(-1)))
@@ -147,14 +217,16 @@ def alignment_functions(start_getter, end_getter):
             cur_max = lis[cur_max].prev
             if cur_max == -1:
                 break
-    
-        #filter(print, imap(lambda x: "\t".join(map(str,x)) , izip(count(),tb,lis,imap(record_to_string,alns))))
-        return filter(itemgetter(0), izip(tb,lis,alns))
+        filtered = filter(itemgetter(0), izip(tb,lis,alns))
+        logf("Filtered Alignments: %d" % len(filtered))
+
+        return filtered
 
 
     #END - get_alignment_functions
     return Alignment_Functions_t(is_reverse,
                                  directionless_start_end_getters,
+                                 greedy_repeat_filter,
                                  best_scoring_non_overlapping_greedy,
                                  longest_non_overlapping_greedy,
                                  remove_contained,
@@ -162,6 +234,7 @@ def alignment_functions(start_getter, end_getter):
                                  len_aln,
                                  score_getter_matching_consensus_estimated,
                                  score_getter_mummer_scorelocal,
+                                 score_getter_penalize_overlap_estimated,
                                  LIS)
 
 def group(key_func, alignment_iterable):
