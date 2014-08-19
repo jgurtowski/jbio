@@ -16,8 +16,8 @@ GFFRecord_t = namedtuple("GFF_Record_t",
                            "strand",
                            "frame",
                            "attribute"])
-GFFRecord_types = [str, str,str, int, int, float,
-                   str, int, str]
+GFFRecord_types = [str, str,str, int, int, str,
+                   str, str, str]
 
 
 def record_iterator(string_iterable):
