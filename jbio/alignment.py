@@ -190,7 +190,11 @@ def alignment_functions(start_getter, end_getter):
         logf = compose(log, partial(add, "LIS:"))
         alignments = make_list(alignments)
 
+
+
         logf("Starting Alignments: %d" % len(alignments))
+        if len(alignments) == 0:
+            return []
         logf("Sorting")
         end_sorted = sorted(alignments, key=eg, reverse=True)
         alns = sorted(end_sorted, key=sg)
@@ -210,6 +214,7 @@ def alignment_functions(start_getter, end_getter):
                 
         #traceback
         max_pos, _ = max(enumerate(lis), key=itemgetter(1))
+
         tb = [False] * len(alns)
         cur_max = max_pos
         while True:
