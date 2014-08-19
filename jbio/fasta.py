@@ -3,7 +3,7 @@ from collections import namedtuple
 FastaRecord = namedtuple('FastaRecord', ['name','seq'])
 FastqRecord = namedtuple('FastqRecord', ['name','seq','desc','qual'])
 
-def fasta_iterator(iterable):
+def record_iterator(iterable):
     '''Iterable is just a collection of strings
     Could be Lines
     Expects that ">" will be at the start of entries
