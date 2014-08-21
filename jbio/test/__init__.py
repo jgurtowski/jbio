@@ -1,4 +1,4 @@
 
 
-__all__ = ["coverage", "alignment"]
+__all__ = ["coverage","sequence", "alignment"]
         

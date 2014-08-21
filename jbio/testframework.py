@@ -57,7 +57,7 @@ def auto_load_tests(package,config=DEFAULT_TEST_CONFIG):
                     tests += generated_tests
                 else:
                     tests.append(generated_tests)
-    filter(print, test_generators)
+    #filter(print, test_generators)
     return lambda : run_tests(tests)
 
     

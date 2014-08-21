@@ -1,6 +1,6 @@
 
 from jbio.coverage import *
-from jbio.testframework import ensure_eq, run_tests
+from jbio.testframework import ensure_eq
 
 def test_coverage_array_from_ranges(config):
     
