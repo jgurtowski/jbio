@@ -17,6 +17,19 @@ TAG_TYPES = {'A': str, 'i': int, 'f': float,
              'Z': str}
 
 
+def cigar_iterator(cigar_str):
+    '''
+    Iterates over a cigar string and returns a tuple 
+    (Cigar_Letter, int(count))
+    '''
+    count = ""
+    for c in cigar_str:
+        if c.isdigit():
+            count += c
+        else:
+            yield( c, int(count))
+            count = ""
+
 def record_iterator(iterable):
     '''Ignores header (@) for now
     '''
@@ -27,7 +40,6 @@ def record_iterator(iterable):
         except StopIteration:
             v = None
         return v
-    
 
     it = iter(iterable)
     first = next_v(it)
