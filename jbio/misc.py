@@ -9,3 +9,6 @@ def varfloor(floor, value):
     if value < floor:
         return floor
     return value
+
+def average(somelist):
+    return sum(somelist) / float(len(somelist))

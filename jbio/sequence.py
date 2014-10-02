@@ -21,7 +21,7 @@ def window_iterator(sequence, window_size, step=1):
 
 def percent_gc(sequence):
     '''Simply calculates the percentage of GC'''
-    uppercase_seq = sequence.upper()
+    sequence = sequence.upper()
 
     checker = re.compile('^[ACGTN]+$')
     if not checker.match(sequence):
