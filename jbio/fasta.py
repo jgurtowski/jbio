@@ -31,3 +31,7 @@ def record_iterator(iterable):
             seq = ""
         else:
             seq += l.strip()
+
+
+def record_to_string(record):
+    return ">" + record.name +"\n"+record.seq
