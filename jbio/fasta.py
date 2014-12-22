@@ -1,7 +1,7 @@
 from collections import namedtuple
 
 FastaRecord = namedtuple('FastaRecord', ['name','seq'])
-FastqRecord = namedtuple('FastqRecord', ['name','seq','desc','qual'])
+
 
 def record_iterator(iterable):
     '''Iterable is just a collection of strings
