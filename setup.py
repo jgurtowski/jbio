@@ -1,4 +1,4 @@
-from setuptools import setup, Command
+from setuptools import setup, Command, find_packages
 from jbio.testframework import auto_load_tests
 
 def readme():
@@ -24,7 +24,7 @@ setup(name='jbio',
       author='James Gurtowski',
       author_email='gurtowsk@cshl.edu',
       license='GPL',
-      packages=['jbio'],
+      packages=find_packages(),
       cmdclass = {'test': TestRunner},
       )
       
