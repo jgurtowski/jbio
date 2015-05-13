@@ -11,7 +11,7 @@ from functools import partial
 from itertools import imap, repeat, starmap
 
 from jbio.io.file import iterator_over_file_from_extension
-from jbio.io.file import line_iterator, FileOrStream
+from jbio.io.file import line_item_iterator, FileOrStream
 from jbio.functional import iterApply
 from jbio.stats import getBasicStats, extendedStatsToString, ExtendedStats
 from jbio.stats import NStar, LBig, Hist, SpanningCoverage
@@ -98,7 +98,7 @@ if p_arg_map["stdin"] >= 0:
     field = p_arg_map["stdin"]
     seqfiles.append(SeqFile('stdin',
                             imap(floatorint,imap(itemgetter(field),
-                                                 line_iterator(sys.stdin))),
+                                                 line_item_iterator(sys.stdin))),
                             FileOrStream("stdout")))
 
 genome_size = p_arg_map["gnm"]

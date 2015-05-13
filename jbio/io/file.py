@@ -20,6 +20,10 @@ def line_iterator(iterable):
     for line in iterable:
         yield line
 
+def line_item_iterator(iterable):
+    for line in iterable:
+        yield line.split()
+
 def iterator_over_file(filename, open_func=open):
     with open_func(filename) as fh:
         for item in fh:
