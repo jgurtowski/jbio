@@ -1,0 +1,163 @@
+#!/usr/bin/env python
+
+import sys
+import os
+
+from collections import namedtuple
+
+from operator import attrgetter, itemgetter
+from functools import partial
+
+from itertools import imap, repeat, starmap
+
+from jbio.io.file import iterator_over_file_from_extension
+from jbio.io.file import line_iterator, FileOrStream
+from jbio.functional import iterApply
+from jbio.stats import getBasicStats, extendedStatsToString, ExtendedStats
+from jbio.stats import NStar, LBig, Hist, SpanningCoverage
+from jbio.args import parseArgs, getHelpStr, argrange, argflag, CLArgument
+from jbio.log import logger
+from jbio.strutil import strAppend
+
+#parameters
+description = ("Usage: schtats [options] file1.{fa,fq} [file2.{fa,fq} ..]\n\n"
+               "Calculate length statistics on a set of sequencing files")
+
+argument_list = (["genome", "gnm", int, None,"Genome Size for calculating n50 (int)"],
+                 ["big", "big", argrange, [],("Increments for calculating stats. "
+                                              "Can be a range start:end:increment or comma "
+                                              "separated list")],
+                 ["hist", "hist", argrange, [],("Bins for calculating histogram. "
+                                                "Must be range, start:end:increment ")],
+                 ["nstar", "nstar", argrange, [10,25,50,75,90],("Calculate N* (ie N50,N75,N90 etc. "
+                                                                "Can be a range start:end:increment or comma "
+                                                                "separated list. Default: [10,25,50,75,90]")],
+                 ["spancov", "spancov", argrange, [], ("Calculate Spanning coverage. "
+                                                       "For given increments retrieve the coverage of "
+                                                       "reads that will span a region of that size. "
+                                                       "Can be comma separated list or range start:end:increment.")],
+                 ["stdin", "stdin", int, -1, ("Read lengths from stdin rather "
+                                                "than from files, argument is the column from which to read "
+                                                "the lengths. O based. Ex. -stdin 1, for 2nd column of input")],
+                 ["stdout","stdout",argflag, False, "Send all output to stdout"], 
+                 ["allonly","allonly", argflag, False, ("Only output 'all' file, not individual files")],
+                 ["log", "log", argflag, False, ("Print some logging info")],
+                 ["noall", "noall", argflag, False, ("Do not output stats for 'all' input files")],
+                 ["pall", "pall", str, "all", ("Prefix for 'all' output. "
+                                               "Note: will not overwrite existing 'all' file, instead appends "
+                                               "'_{i}.schtats' to -pall. Default: all.schtats")])
+
+#create argument datastructure from the list
+arguments = map(CLArgument._make, argument_list)
+
+if not len(sys.argv) > 1:
+    sys.exit(getHelpStr(description,arguments) + "\n")
+
+(p_arg_map, args_remaining) = parseArgs(sys.argv[1:], arguments)
+
+log = logger(sys.stderr if p_arg_map["log"] else None)
+
+#simple seqfile struct with name of file, seq iterator and filehandle
+SeqFile = namedtuple('SeqFile', ['name','lenit', 'outfile'])
+
+if not len(args_remaining) >= 1 and not p_arg_map["stdin"] >=0:
+    sys.exit(getHelpStr(description,arguments) + "\n")
+
+file_names = args_remaining
+seqfiles = []
+
+if len(file_names) > 0:
+
+    fileIterators = map(iterator_over_file_from_extension, file_names)
+
+    #we only want the lengths
+    seqlen = lambda x : len(x.seq)
+    lenits = map(partial(iterApply,seqlen), fileIterators)
+
+
+    #build output files
+    if p_arg_map["stdout"]:
+        ofnames = repeat("stdout",len(file_names))
+    else:
+        ofnames = imap(strAppend(".schtats"), file_names)
+
+    outfiles = map(lambda n : FileOrStream(n,"w"), ofnames)
+
+    #build the seqfiles
+    seqfiles = map(SeqFile._make,
+                   zip(file_names,lenits,outfiles))
+
+def floatorint(x):
+    '''Hack for making pctid histograms'''
+    try:
+        return int(x)
+    except ValueError:
+        return float(x)
+
+if p_arg_map["stdin"] >= 0:
+    field = p_arg_map["stdin"]
+    seqfiles.append(SeqFile('stdin',
+                            imap(floatorint,imap(itemgetter(field),
+                                                 line_iterator(sys.stdin))),
+                            FileOrStream("stdout")))
+
+genome_size = p_arg_map["gnm"]
+
+def calcStats(lengths):
+    
+    lengths.sort(reverse=True)
+
+    basic = getBasicStats(lengths, genome_size)
+    
+    nstar = map(lambda x: x(lengths),
+                NStar(p_arg_map["nstar"],
+                      p_arg_map["gnm"] if p_arg_map["gnm"] else sum(lengths)))
+        
+    #get bigs
+    bigs =  map(lambda x: x(lengths),
+                LBig(p_arg_map["big"], genome_size))
+
+    #get spanning coverage
+    spanning_covs = map(lambda x : x(lengths),
+                       SpanningCoverage(p_arg_map["spancov"], genome_size))
+
+    #get hist
+    bins = p_arg_map["hist"]
+    binsize = bins[1] - bins[0] if len(bins) > 1 else 0
+    hist = map(lambda x : x(lengths),
+               Hist(p_arg_map["hist"], binsize))
+    
+    return ExtendedStats(basic,nstar,bigs,hist,spanning_covs,genome_size)
+
+all_file_lengths = []
+for seqfile in seqfiles:
+    log("Reading %s" % seqfile.name)
+    lengths = list(seqfile.lenit)
+    
+    if not p_arg_map["allonly"]:
+        log("Calculating Stats for %s" % seqfile.name)
+        stats = calcStats(lengths)    
+        with seqfile.outfile as of:
+            of.write(extendedStatsToString(stats))
+            of.write("\n")
+            
+    all_file_lengths += lengths
+
+##print out stats for all files combined
+
+if len(seqfiles) > 1 and not p_arg_map["noall"]:
+    log("Calculating Stats for all input files")
+    stats = calcStats(all_file_lengths)
+
+    pall = p_arg_map["pall"]
+    outfile = pall + ".schtats"
+    inc = 0
+    while os.path.exists(outfile):
+        inc += 1
+        outfile = "%s_%d.schtats" % (pall,inc)
+
+    log("Writing stats for all input files to %s" % outfile)
+    with open(outfile, "w") as of:
+        of.write("Files:\n%s\n\n" % "\n".join(map(attrgetter("name"),seqfiles)))
+        of.write(extendedStatsToString(stats))
+        of.write("\n")

@@ -16,3 +16,10 @@ def fpass(*args, **kwargs):
 
 def identity(x):
     return x
+
+def iterApply(func, iterable):
+    '''Takes a function and applies that function
+        to each iterable in the form of a generator
+    '''
+    for i in iterable:
+        yield func(i)

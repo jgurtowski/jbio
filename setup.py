@@ -18,13 +18,14 @@ class TestRunner(Command):
         
 setup(name='jbio',
       version='0.1',
-      description='General Tools',
+      description='General Library and Tools',
       long_description=readme(),
       url='https://github.com/jgurtowski/jbio',
       author='James Gurtowski',
       author_email='gurtowsk@cshl.edu',
       license='GPL',
       packages=find_packages(),
+      scripts=['scripts/schtats'],
       cmdclass = {'test': TestRunner},
       )
       
