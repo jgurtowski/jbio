@@ -39,11 +39,11 @@ def iterator_over_file_from_extension(filename):
     i_o_f = iterator_over_file(filename, opener)
     
     if "fa" in ext or "fasta" in ext:
-        from jbio.fasta import record_iterator
-        return record_iterator(i_o_f)
+        from jbio.fasta import record_iterator as fasta_iterator
+        return fasta_iterator(i_o_f)
     elif "fq" in ext or "fastq" in ext:
-        from jbio.fastq import record_iterator
-        return record_iterator(i_o_f)
+        from jbio.fastq import record_iterator as fastq_iterator
+        return fastq_iterator(i_o_f)
     else:
         raise Exception("Unknown File Extension \'%s\'" % ext[-1])
 
